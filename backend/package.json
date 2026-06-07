@@ -9,7 +9,7 @@
   "start": "node -r dotenv/config src/index.js"
 },
 
-//"scropts";
+
   "keywords": [],
   "author": "",
   "license": "ISC",
