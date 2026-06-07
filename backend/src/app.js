@@ -36,7 +36,6 @@ import walletRouter from "./routes/wallet.routes.js";
 import adminRouter from "./routes/admin.routes.js";
 import chickenGameRouter from "./routes/chickenRoad.routes.js";
 import paymentRouter from "./routes/payment.routes.js";
-import telegramRoute from "./routes/telegramBot.routes.js";
 import mineGameRouter from "./routes/mineGame.routes.js";
 import colorGameRouter from "./routes/ColorGame.routes.js";
 import aviatorGameRouter from "./routes/aviatorGame.routes.js";
@@ -46,7 +45,8 @@ import SpinnerPriceRoute from "./routes/spinner.routes.js";
 import referAmount from "./routes/refer.amount.routes.js";
 
 import notificationRouter from "./routes/notification.routes.js";
-import telegramAmount from "./routes/telegram.amount.routes.js";
+
+const isTelegramEnabled = process.env.ENABLE_TELEGRAM === "true";
 
 app.use("/api/v1/notification", notificationRouter);
 // //Routes Declaration
@@ -59,11 +59,21 @@ app.use("/api/v1/mine", mineGameRouter);
 app.use("/api/v1/upi", paymentRouter);
 app.use("/api/v1/color", colorGameRouter);
 app.use("/api/v1/aviator", aviatorGameRouter);
-app.use("/api/v1/telegram", telegramRoute);
 app.use("/api/v1/qrcode", qrRoute);
 app.use("/api/v1/qrcodecrypto", qrRouteCrypto);
 app.use("/api/v1/spinner", SpinnerPriceRoute);
 app.use("/api/v1/refer-amount", referAmount);
-app.use("/api/v1/telegram-amount", telegramAmount);
+
+if (isTelegramEnabled) {
+  const { default: telegramRoute } = await import(
+    "./routes/telegramBot.routes.js"
+  );
+  const { default: telegramAmount } = await import(
+    "./routes/telegram.amount.routes.js"
+  );
+
+  app.use("/api/v1/telegram", telegramRoute);
+  app.use("/api/v1/telegram-amount", telegramAmount);
+}
 
 export { app };

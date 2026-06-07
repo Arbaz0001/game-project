@@ -4,26 +4,26 @@ import { Withdrawal } from "../models/withdrawal.model.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { createInterface } from "readline";
-import { TelegramClient } from "telegram";
-import { StringSession } from "telegram/sessions/index.js";
-import { Api } from "telegram";
-// import { TelegramClient } from "telegram";
-// import { StringSession } from "telegram/sessions/index.js";
-// import { Api } from "telegram";
-// import express from "express";
-// import promptSync from "prompt-sync";
-// const prompt = promptSync();
-// const apiId = 23416733; // my.telegram.org से लो
-// const apiHash = "e87f3e11b9917aa1cb3c0cd4f9a3c63c";
-// const stringSession = new StringSession(""); // पहली बार खाली
 
-// const client = new TelegramClient(stringSession, apiId, apiHash, {
-//   connectionRetries: 5,
-// });
-const apiId = 23416733;
-const apiHash = "e87f3e11b9917aa1cb3c0cd4f9a3c63c";
-const stringSession = new StringSession(process.env.TELEGRAM_SESSION || "");
+const getTelegramClient = async () => {
+  if (process.env.ENABLE_TELEGRAM !== "true") {
+    return null;
+  }
+
+  const { TelegramClient } = await import("telegram");
+  const { StringSession } = await import("telegram/sessions/index.js");
+
+  const apiId = 23416733;
+  const apiHash = "e87f3e11b9917aa1cb3c0cd4f9a3c63c";
+  const stringSession = new StringSession(process.env.TELEGRAM_SESSION || "");
+
+  const client = new TelegramClient(stringSession, apiId, apiHash, {
+    connectionRetries: 5,
+  });
+
+  await client.connect();
+  return client;
+};
 
 const addMoneyToWallet = asyncHandler(async (req, res) => {
   const { amount, method, isPaid } = req.body;
@@ -308,10 +308,16 @@ const getAllDepositeHistory = asyncHandler(async (req, res) => {
 });
 
 const updateTelegramDepositeTransactionStatus = async (req, res) => {
-  const client = new TelegramClient(stringSession, apiId, apiHash, {
-    connectionRetries: 5,
-  });
-  await client.connect();
+  if (process.env.ENABLE_TELEGRAM !== "true") {
+    return res.status(503).json({
+      success: false,
+      message: "Telegram integration is disabled",
+    });
+  }
+
+  const client = await getTelegramClient();
+  const { Api } = await import("telegram");
+
   try {
     const { status, id, userId, amount, channelId } = req.body;
     console.log(userId);

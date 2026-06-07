@@ -2,23 +2,31 @@ import { GameRound } from "../models/gameRound.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { apiError } from "../utils/apiError.js";
-import { createInterface } from "readline";
-import { TelegramClient } from "telegram";
-import { StringSession } from "telegram/sessions/index.js";
-import { Api } from "telegram";
 
-const apiId = 23416733;
-const apiHash = "e87f3e11b9917aa1cb3c0cd4f9a3c63c";
-const stringSession = new StringSession(process.env.TELEGRAM_SESSION || "");
+const getTelegramClient = async () => {
+  if (process.env.ENABLE_TELEGRAM !== "true") {
+    return null;
+  }
+
+  const { TelegramClient } = await import("telegram");
+  const { StringSession } = await import("telegram/sessions/index.js");
+
+  const apiId = 23416733;
+  const apiHash = "e87f3e11b9917aa1cb3c0cd4f9a3c63c";
+  const stringSession = new StringSession(process.env.TELEGRAM_SESSION || "");
+
+  const client = new TelegramClient(stringSession, apiId, apiHash, {
+    connectionRetries: 5,
+  });
+
+  await client.connect();
+  return client;
+};
 
 const setgameround = asyncHandler(async (req, res) => {
   const { gameType, multipliers, startTime, endTime, channelId, period } =
     req.body;
-  const client = new TelegramClient(stringSession, apiId, apiHash, {
-    connectionRetries: 5,
-  });
-  await client.connect();
-  // ✅ Validate required fields
+
   if (
     !gameType ||
     !Array.isArray(multipliers) ||
@@ -32,7 +40,6 @@ const setgameround = asyncHandler(async (req, res) => {
     );
   }
 
-  // ✅ Create the game round
   const newGameRound = await GameRound.create({
     gameType,
     multipliers,
@@ -44,29 +51,30 @@ const setgameround = asyncHandler(async (req, res) => {
     createdByAdmin: true,
     messageSent: false,
   });
-  const channel = await client.getEntity(channelId);
-  await client.sendMessage(channel, {
-    message: `New game round scheduled!\n\nGame Type: ${gameType}\n${
-      period ? `Period :` + period : ""
-    } \nStart Time: ${new Date(
-      startTime
-    ).toLocaleString()}\nEnd Time: ${new Date(
-      endTime
-    ).toLocaleString()}\n Crash Points: ${multipliers.join(", ")}`,
-  });
 
-  // ✅ Respond with success
+  if (process.env.ENABLE_TELEGRAM === "true" && channelId) {
+    const client = await getTelegramClient();
+    const channel = await client.getEntity(channelId);
+
+    await client.sendMessage(channel, {
+      message: `New game round scheduled!\n\nGame Type: ${gameType}\n${
+        period ? `Period :` + period : ""
+      } \nStart Time: ${new Date(
+        startTime
+      ).toLocaleString()}\nEnd Time: ${new Date(
+        endTime
+      ).toLocaleString()}\n Crash Points: ${multipliers.join(", ")}`,
+    });
+  }
+
   return res
     .status(201)
-    .json(
-      new apiResponse(201, newGameRound, "✅ Game round scheduled successfully")
-    );
+    .json(new apiResponse(201, newGameRound, "Game round scheduled successfully"));
 });
 
 const getAllGameRounds = asyncHandler(async (req, res) => {
   const { gameType, status } = req.query;
 
-  // Optional filters
   const filter = {};
   if (gameType) filter.gameType = gameType;
   if (status) filter.status = status;
@@ -75,29 +83,25 @@ const getAllGameRounds = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new apiResponse(200, rounds, "🎮 All game rounds fetched successfully")
-    );
+    .json(new apiResponse(200, rounds, "All game rounds fetched successfully"));
 });
 
 const deleteGameRound = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Check if the ID is provided
   if (!id) {
-    throw new apiError(400, "❌ Game round ID is required");
+    throw new apiError(400, "Game round ID is required");
   }
 
-  // Find and delete the game round
   const deleted = await GameRound.findByIdAndDelete(id);
 
   if (!deleted) {
-    throw new apiError(404, "❌ Game round not found");
+    throw new apiError(404, "Game round not found");
   }
 
   return res
     .status(200)
-    .json(new apiResponse(200, deleted, "🗑️ Game round deleted successfully"));
+    .json(new apiResponse(200, deleted, "Game round deleted successfully"));
 });
 
 const updateGameRound = asyncHandler(async (req, res) => {
@@ -105,7 +109,6 @@ const updateGameRound = asyncHandler(async (req, res) => {
   const { gameType, multipliers, startTime, endTime, status, period } =
     req.body;
 
-  // ✅ Validation
   if (
     !gameType ||
     !multipliers ||
@@ -119,7 +122,6 @@ const updateGameRound = asyncHandler(async (req, res) => {
     );
   }
 
-  // ✅ Find and update
   const updatedRound = await GameRound.findByIdAndUpdate(
     id,
     {
@@ -131,7 +133,7 @@ const updateGameRound = asyncHandler(async (req, res) => {
       period,
       updatedAt: new Date(),
     },
-    { new: true } // return the updated document
+    { new: true }
   );
 
   if (!updatedRound) {
@@ -140,9 +142,7 @@ const updateGameRound = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new apiResponse(200, updatedRound, "✅ Game round updated successfully")
-    );
+    .json(new apiResponse(200, updatedRound, "Game round updated successfully"));
 });
 
 export { setgameround, getAllGameRounds, deleteGameRound, updateGameRound };
