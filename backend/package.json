@@ -7,7 +7,9 @@
   "scripts": {
   "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
   "start": "node -r dotenv/config src/index.js"
-}
+},
+
+//"scropts";
   "keywords": [],
   "author": "",
   "license": "ISC",
